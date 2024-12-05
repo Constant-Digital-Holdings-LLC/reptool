@@ -9,15 +9,19 @@ const isCMD = (value: string): value is CMD => {
 };
 
 const [cmd, target] = Deno.args;
-
 const handleUsage = (): void => {
-  console.log(
-    `${APPNAME} version: ${VERSION}\n\nUsage: reptool <command> <target>\n\n`
-  );
-  console.log(
-    `Example: ${APPNAME} merge C:\\Users\\slynch\\Desktop\\Reports\n\n`
-  );
-  console.log(`Available commands: ${CMDLIST}\n\n`);
+  console.log(`
+${APPNAME} version: ${VERSION}
+
+Usage: reptool <command> <target>
+
+Available commands: ${CMDLIST.join(", ")}
+
+Example:
+  ${APPNAME} merge C:\\Users\\slynch\\Desktop\\Reports
+
+Need help?: support@ham.live
+`);
 };
 
 const validateArgs = (args: string[]): void => {
