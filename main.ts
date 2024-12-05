@@ -1,10 +1,13 @@
-const VERSION = 0.1;
+import { VERSION } from "./version.ts";
+
 const APPNAME = "reptool";
 
 const [cmd, target] = Deno.args;
 
 const handleUsage = (): void => {
-  console.log(`${APPNAME} ${VERSION}\n\nUsage: reptool <command> <target>\n\n`);
+  console.log(
+    `${APPNAME} version: ${VERSION}\n\nUsage: reptool <command> <target>\n\n`
+  );
   console.log(
     `Example:\n\n${APPNAME} merge C:\\Users\\slynch\\Desktop\\Reports\n\n`
   );
@@ -21,7 +24,7 @@ const targetIs = async (
   type: "DIR" | "FILE",
   target: string
 ): Promise<boolean> => {
-  if (!target) throw new Error(`Missing target ${type}`);
+  if (!target) throw new Error(`missing target ${type}`);
 
   const { isFile, isDirectory } = await Deno.stat(target);
 
@@ -52,7 +55,7 @@ const main = async (): Promise<void> => {
     }
   } catch (err) {
     if (err instanceof Error) {
-      console.error(`Error: ${err.message}`);
+      console.error(`Error: ${cmd ? cmd : ""} ${err.message}`);
     } else {
       console.error("Unknown error occurred");
     }
