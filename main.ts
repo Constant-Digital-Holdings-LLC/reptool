@@ -2,6 +2,12 @@ import { VERSION } from "./version.ts";
 
 const APPNAME = "reptool";
 
+const CMDLIST = ["merge"] as const; // more commands to come...
+type CMD = (typeof CMDLIST)[number];
+const isCMD = (value: string): value is CMD => {
+  return CMDLIST.includes(value as CMD);
+};
+
 const [cmd, target] = Deno.args;
 
 const handleUsage = (): void => {
@@ -9,8 +15,9 @@ const handleUsage = (): void => {
     `${APPNAME} version: ${VERSION}\n\nUsage: reptool <command> <target>\n\n`
   );
   console.log(
-    `Example:\n\n${APPNAME} merge C:\\Users\\slynch\\Desktop\\Reports\n\n`
+    `Example: ${APPNAME} merge C:\\Users\\slynch\\Desktop\\Reports\n\n`
   );
+  console.log(`Available commands: ${CMDLIST}\n\n`);
 };
 
 const validateArgs = (args: string[]): void => {
@@ -23,8 +30,8 @@ const validateArgs = (args: string[]): void => {
 const targetIs = async (
   type: "DIR" | "FILE",
   target: string
-): Promise<boolean> => {
-  if (!target) throw new Error(`missing target ${type}`);
+): Promise<void> => {
+  if (!target) throw new Error(`Missing target ${type}`);
 
   const { isFile, isDirectory } = await Deno.stat(target);
 
@@ -33,8 +40,6 @@ const targetIs = async (
   } else if (type === "FILE" && !isFile) {
     throw new Error(`Target ${target} is not a file`);
   }
-
-  return true;
 };
 
 const cmdMerge = async (target: string): Promise<void> => {
@@ -42,17 +47,25 @@ const cmdMerge = async (target: string): Promise<void> => {
   console.log(`Handling merge in ${target}`);
 };
 
+const executeCommand = async (cmd: CMD, target: string): Promise<void> => {
+  switch (cmd) {
+    case "merge":
+      await cmdMerge(target);
+      break;
+    default:
+      throw new Error(`No such ${APPNAME} command: ${cmd}`);
+  }
+};
+
 const main = async (): Promise<void> => {
   try {
     validateArgs(Deno.args);
 
-    switch (cmd) {
-      case "merge":
-        await cmdMerge(target);
-        break;
-      default:
-        throw new Error(`No such ${APPNAME} command: ${cmd}`);
+    if (!isCMD(cmd)) {
+      throw new Error(`No such ${APPNAME} command: ${cmd}`);
     }
+
+    await executeCommand(cmd, target);
   } catch (err) {
     if (err instanceof Error) {
       console.error(`Error: ${cmd ? cmd : ""} ${err.message}`);
