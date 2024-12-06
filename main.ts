@@ -40,15 +40,21 @@ const targetIs = async (
   const { isFile, isDirectory } = await Deno.stat(target);
 
   if (type === "DIR" && !isDirectory) {
-    throw new Error(`Target ${target} is not a directory`);
+    throw new Error(`target ${target} is not a directory`);
   } else if (type === "FILE" && !isFile) {
-    throw new Error(`Target ${target} is not a file`);
+    throw new Error(`target ${target} is not a file`);
   }
 };
 
 const cmdMerge = async (target: string): Promise<void> => {
   await targetIs("DIR", target);
   console.log(`Handling merge in ${target}`);
+
+  [...Deno.readDirSync(target)].forEach(({ isFile, name }) => {
+    if (isFile && name.includes(".csv") && !name.includes("MERGED.csv")) {
+      console.log(`Processing ${name}`);
+    }
+  });
 };
 
 const executeCommand = async (cmd: CMD, target: string): Promise<void> => {
