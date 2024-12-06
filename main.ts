@@ -68,10 +68,9 @@ const cmdMerge = async (target: string): Promise<void> => {
   await targetIs("DIR", target);
   console.log(`Handling merge in ${target}`);
 
-  const requiredHeaders = ["Check-In Date", "Net ID"] as const; //We should throw an error if individual reports are misssing these
-  const mergedHeaders = new Set<string>();
-  const mergedReport: string[] = [];
+  const referenceHeaders: string[] = [];
   const inputReports: string[] = [];
+  const checkInDateHeader = "Check-In Date";
 
   // Populate input file list
   const inputFileList: URL[] = [...Deno.readDirSync(target)]
@@ -83,26 +82,33 @@ const cmdMerge = async (target: string): Promise<void> => {
 
   console.log(`Input files: ${JSON.stringify(inputFileList)}`);
 
-  // Determine Aggregate *New Headers and store each CSV in memory
+  // Store each input report (CSV) in memory
   (
-    await Promise.all(inputFileList.map((url) => Deno.readTextFile(url)))
-  ).forEach((inputReport) => {
-    //Save report for later
-    inputReports.push(inputReport);
+    await Promise.all(
+      inputFileList.map(async (url) => {
+        return { data: await Deno.readTextFile(url), pathname: url.pathname };
+      })
+    )
+  ).forEach(
+    ({ data, pathname }) =>
+      (data.split("\n")[0].split(",").includes(checkInDateHeader) && //only store reports with a valid header
+        inputReports.push(data)) ||
+      console.error(`Ignoring ${pathname}`)
+  );
 
-    //Populate agg header set
-    inputReport
-      .split("\n")[0]
-      .split(",")
-      .forEach((header) => header.length && mergedHeaders.add(header));
+  inputReports.forEach((rep) => {
+    console.log(`Report\n${JSON.stringify(rep)}`);
   });
 
-  if (mergedHeaders.size === 0)
-    throw new Error("malformed input files, no headers found");
+  //Get index of checkInDateHeader
+  // const checkInDateHeaderIndex = inputReports
 
-  console.log(
-    `Using combined headers: ${JSON.stringify(Array.from(mergedHeaders))}`
-  );
+  // if (mergedHeaders.size === 0)
+  //   throw new Error("malformed input files, no headers found");
+
+  // console.log(
+  //   `Using combined headers: ${JSON.stringify(Array.from(mergedHeaders))}`
+  // );
 
   //Agg: ["Net","Callsign","Role","Highlighted","Check-In Date","Name","Location","SigReport","URL","Net ID","Net Start Date"]
   //Individual: ["Net","Callsign","Role","Check-In Date","Name","Location","SigReport","URL","Net ID","Net Start Date"]
