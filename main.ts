@@ -52,7 +52,7 @@ const cmdMerge = async (target: string): Promise<void> => {
 
   [...Deno.readDirSync(target)].forEach(({ isFile, name }) => {
     if (isFile && name.includes(".csv") && !name.includes("MERGED.csv")) {
-      console.log(`Processing ${name}`);
+      console.log(`Processing\t${name} ...`);
     }
   });
 };
