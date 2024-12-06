@@ -97,40 +97,48 @@ const cmdMerge = async (target: string): Promise<void> => {
   );
 
   inputReports.sort((a, b) => {
+    // Split the data into header and rows
     const [headerA, ...dataA] = a.data.split("\n");
     const [headerB, ...dataB] = b.data.split("\n");
 
+    // Split the headers into fields
     const headerAFields = headerA.split(",");
     const headerBFields = headerB.split(",");
 
+    // Split the first record of data into fields
     const dataAFirstRecordFields = dataA[0].split(",");
     const dataBFirstRecordFields = dataB[0].split(",");
 
     console.log(`headerA: ${headerA}`);
     console.log(`headerB: ${headerB}`);
 
+    // Find the index of the check-in date header
     const locationA = headerAFields.indexOf(checkInDateHeader);
     const locationB = headerBFields.indexOf(checkInDateHeader);
 
+    // If the check-in date header is not found, log an error and return 0
     if (locationA === -1 || locationB === -1) {
       console.error(`Check-In Date header not found in one of the files.`);
       return 0;
     }
 
+    // Extract the check-in dates from the first record
     let dateA = dataAFirstRecordFields[locationA];
     let dateB = dataBFirstRecordFields[locationB];
 
-    // Remove double quotes if present
+    // Remove double quotes
     dateA = dateA.replace(/"/g, "");
     dateB = dateB.replace(/"/g, "");
 
     console.log(`Extracted dates: dateA = ${dateA}, dateB = ${dateB}`);
 
+    // Parse the dates into timestamps
     const timeA = new Date(dateA).getTime();
     const timeB = new Date(dateB).getTime();
 
     console.log(`Parsed times: timeA = ${timeA}, timeB = ${timeB}`);
 
+    // If either date is invalid, log an error and return 0
     if (isNaN(timeA) || isNaN(timeB)) {
       console.error(
         `Invalid date format in one of the files: ${dateA}, ${dateB}`
@@ -138,6 +146,7 @@ const cmdMerge = async (target: string): Promise<void> => {
       return 0;
     }
 
+    // Sort in descending order (most recent first)
     return timeB - timeA;
   });
 
