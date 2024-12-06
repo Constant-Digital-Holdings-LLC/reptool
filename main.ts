@@ -69,7 +69,7 @@ const cmdMerge = async (target: string): Promise<void> => {
   console.log(`Handling merge in ${target}`);
 
   const referenceHeaders: string[] = [];
-  const inputReports: string[] = [];
+  const inputReports: Array<{ data: string; pathname: string }> = [];
   const checkInDateHeader = "Check-In Date";
 
   // Populate input file list
@@ -92,16 +92,66 @@ const cmdMerge = async (target: string): Promise<void> => {
   ).forEach(
     ({ data, pathname }) =>
       (data.split("\n")[0].split(",").includes(checkInDateHeader) && //only store reports with a valid header
-        inputReports.push(data)) ||
-      console.error(`Ignoring ${pathname}`)
+        inputReports.push({ data, pathname })) ||
+      console.error(`Ignoring: ${pathname}`)
+  );
+
+  inputReports.sort((a, b) => {
+    const [headerA, ...dataA] = a.data.split("\n");
+    const [headerB, ...dataB] = b.data.split("\n");
+
+    const headerAFields = headerA.split(",");
+    const headerBFields = headerB.split(",");
+
+    const dataAFirstRecordFields = dataA[0].split(",");
+    const dataBFirstRecordFields = dataB[0].split(",");
+
+    console.log(`headerA: ${headerA}`);
+    console.log(`headerB: ${headerB}`);
+
+    const locationA = headerAFields.indexOf(checkInDateHeader);
+    const locationB = headerBFields.indexOf(checkInDateHeader);
+
+    if (locationA === -1 || locationB === -1) {
+      console.error(`Check-In Date header not found in one of the files.`);
+      return 0;
+    }
+
+    let dateA = dataAFirstRecordFields[locationA];
+    let dateB = dataBFirstRecordFields[locationB];
+
+    // Remove double quotes if present
+    dateA = dateA.replace(/"/g, "");
+    dateB = dateB.replace(/"/g, "");
+
+    console.log(`Extracted dates: dateA = ${dateA}, dateB = ${dateB}`);
+
+    const timeA = new Date(dateA).getTime();
+    const timeB = new Date(dateB).getTime();
+
+    console.log(`Parsed times: timeA = ${timeA}, timeB = ${timeB}`);
+
+    if (isNaN(timeA) || isNaN(timeB)) {
+      console.error(
+        `Invalid date format in one of the files: ${dateA}, ${dateB}`
+      );
+      return 0;
+    }
+
+    return timeB - timeA;
+  });
+
+  console.log(`First report ${inputReports[0].pathname}`);
+
+  console.log(
+    `Reports ordered by most recent check-in: ${JSON.stringify(
+      inputReports.map((ir) => ir.pathname)
+    )}`
   );
 
   inputReports.forEach((rep) => {
-    console.log(`Report\n${JSON.stringify(rep)}`);
+    console.log(`\nReport:\n${JSON.stringify(rep)}`);
   });
-
-  //Get index of checkInDateHeader
-  // const checkInDateHeaderIndex = inputReports
 
   // if (mergedHeaders.size === 0)
   //   throw new Error("malformed input files, no headers found");
