@@ -24,7 +24,7 @@ reptool <command> <target>
 ### Example
 
 ```sh
-reptool merge /path/to/reports
+reptool merge /path/to/reports (directory containing .csv files)
 ```
 
 ### Output
