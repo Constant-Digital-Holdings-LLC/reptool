@@ -26,7 +26,6 @@ interface Report {
 // Function to display usage information
 const handleUsage = (): void => {
   console.log(`
-${APPNAME} version: ${VERSION}
 
 Usage: reptool <command> <target>
 
@@ -304,6 +303,7 @@ const executeCommand = async (cmd: CMD, target?: string): Promise<void> => {
 
 // Main function to run the program
 const main = async (): Promise<void> => {
+  console.log(`${APPNAME} (v ${VERSION})`);
   try {
     const { cmd, target } = processArgs();
     await executeCommand(cmd, target);
