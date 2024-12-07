@@ -285,7 +285,7 @@ const cmdMerge = async (target?: string): Promise<void> => {
   )
     throw new Error("Could not determine reference header fields");
 
-  console.log(`Derived reference header fields determined.`);
+  console.log(`Reference header fields determined.`);
 
   // Populate Merged Report (output)
   mergedReport[0] = derivedReferenceHeader; // Set header
