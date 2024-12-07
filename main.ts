@@ -23,11 +23,6 @@ interface Report {
   pathname: string;
 }
 
-// Get command-line arguments
-const [cmd, target] = Deno.args;
-// We can't append to this unless it has a trailing slash
-const targetUrl = toFileUrl(target.endsWith("/") ? target : `${target}/`);
-
 // Function to display usage information
 const handleUsage = (): void => {
   console.log(`
@@ -45,11 +40,19 @@ Need help?: ${HELPEMAIL}
 };
 
 // Function to validate command-line arguments
-const validateArgs = (args: string[]): void => {
-  if (args.length === 0) {
+const processArgs = (): { cmd: CMD; target?: string } => {
+  const [cmd, target] = Deno.args;
+
+  if (!cmd) {
     handleUsage();
-    throw new Error("Expected at least one argument");
+    throw new Error("Missing command argument");
   }
+
+  if (!isCMD(cmd)) {
+    throw new Error(`No such ${APPNAME} command: ${cmd}`);
+  }
+
+  return { cmd, target };
 };
 
 // Function to check if the target is a directory or file
@@ -197,7 +200,13 @@ const populateMergedReport = (
 };
 
 // Function to handle the "merge" command
-const cmdMerge = async (target: string): Promise<void> => {
+const cmdMerge = async (target?: string): Promise<void> => {
+  if (!target) {
+    handleUsage();
+
+    throw new Error("Missing target path argument for merge command");
+  }
+
   console.log(`Starting merge process for target directory: ${target}`);
 
   // Will throw if target is not a directory
@@ -208,6 +217,7 @@ const cmdMerge = async (target: string): Promise<void> => {
   const checkInDateHeader = "Check-In Date";
 
   // Populate input file list
+  const targetUrl = toFileUrl(target.endsWith("/") ? target : `${target}/`);
   const inputFileList: URL[] = [...Deno.readDirSync(target)]
     .filter(
       ({ isFile, name }) =>
@@ -274,7 +284,7 @@ const cmdMerge = async (target: string): Promise<void> => {
 };
 
 // Function to execute the given command
-const executeCommand = async (cmd: CMD, target: string): Promise<void> => {
+const executeCommand = async (cmd: CMD, target?: string): Promise<void> => {
   switch (cmd) {
     case "merge":
       await cmdMerge(target);
@@ -287,16 +297,11 @@ const executeCommand = async (cmd: CMD, target: string): Promise<void> => {
 // Main function to run the program
 const main = async (): Promise<void> => {
   try {
-    validateArgs(Deno.args);
-
-    if (!isCMD(cmd)) {
-      throw new Error(`No such ${APPNAME} command: ${cmd}`);
-    }
-
+    const { cmd, target } = processArgs();
     await executeCommand(cmd, target);
   } catch (err) {
     if (err instanceof Error) {
-      console.error(`Error: ${cmd ? cmd : ""} ${err.message}`);
+      console.error(`Error: ${err.message}`);
     } else {
       console.error("Unknown error occurred");
     }
