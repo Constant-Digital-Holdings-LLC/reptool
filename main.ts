@@ -147,6 +147,8 @@ const sortReportsByDate = (
 
     return timeB - timeA;
   });
+
+  console.debug(`Reports sorted by check-in date.`);
 };
 
 // Function to populate the merged report
