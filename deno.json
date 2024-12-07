@@ -1,1 +1,5 @@
-{}
+{
+  "tasks": {
+    "build": "deno run -A version.ts && deno compile -A --output dist/linux-x86-64/reptool --target x86_64-unknown-linux-gnu main.ts && deno compile -A --output dist/windows-x86-64/reptool.exe --target x86_64-pc-windows-msvc main.ts && deno compile -A --output dist/macos-x86-64/reptool --target x86_64-apple-darwin main.ts && deno compile -A --output dist/macos-arm64/reptool --target aarch64-apple-darwin main.ts"
+  }
+}

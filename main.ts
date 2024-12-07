@@ -300,6 +300,7 @@ const cmdMerge = async (target?: string): Promise<void> => {
 
 // Function to execute the given command
 const executeCommand = async (cmd: CMD, target?: string): Promise<void> => {
+  console.debug(`Executing command: ${cmd}`);
   switch (cmd) {
     case "merge":
       await cmdMerge(target);
@@ -312,7 +313,7 @@ const executeCommand = async (cmd: CMD, target?: string): Promise<void> => {
 // Main function to run the program
 const main = async (): Promise<void> => {
   console.log(`${APPNAME} (v ${VERSION})`);
-  const startTime = Date.now();
+  const startTime = performance.now();
   try {
     const { cmd, target } = processArgs();
     await executeCommand(cmd, target);
@@ -324,9 +325,9 @@ const main = async (): Promise<void> => {
     }
     Deno.exit(1);
   } finally {
-    const endTime = Date.now();
+    const endTime = performance.now();
     const executionTime = (endTime - startTime) / 1000;
-    console.log(`Execution time: ${executionTime} seconds`);
+    console.log(`Execution time: ${executionTime.toFixed(2)} seconds`);
   }
 };
 
