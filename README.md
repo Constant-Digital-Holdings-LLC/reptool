@@ -54,20 +54,6 @@ deno task build
 
 Download the pre-built binaries from the [releases](https://github.com/Constant-Digital-Holdings-LLC/reptool/tree/main/dist) page.
 
-## Configuration
-
-### `deno.json`
-
-The `deno.json` file includes tasks for building the project:
-
-```json
-{
-    "tasks": {
-        "build": "deno run -A version.ts && deno compile -A --output dist/linux-x86-64/reptool --target x86_64-unknown-linux-gnu main.ts && deno compile -A --output reptool.exe --target x86_64-pc-windows-msvc main.ts && deno compile -A --output dist/macos-x86-64/reptool --target x86_64-apple-darwin main.ts && deno compile -A --output dist/macos-arm64/reptool --target aarch64-apple-darwin main.ts"
-    }
-}
-```
-
 ## License
 
 This software is distributed under the MIT license with no warranty. Ham.Live has no liability for any damages, misuse, or bugs.
