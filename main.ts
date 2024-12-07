@@ -62,6 +62,7 @@ const targetIs = async (
   }
 };
 
+// Function to split a CSV line into fields, handling quoted fields
 const splitCSVLine = (line: string): string[] => {
   const result = [];
   let field = "";
@@ -94,8 +95,105 @@ const splitCSVLine = (line: string): string[] => {
   return result;
 };
 
+// Function to sort input reports by the check-in date in descending order
+const sortReportsByDate = (
+  inputReports: Array<{ data: string; pathname: string }>,
+  checkInDateHeader: string
+): void => {
+  inputReports.sort((a, b) => {
+    const [headerA, ...dataA] = a.data.split("\n");
+    const [headerB, ...dataB] = b.data.split("\n");
+
+    const headerAFields = headerA.split(",");
+    const headerBFields = headerB.split(",");
+
+    const dataAFirstRecordFields = dataA[0].split(",");
+    const dataBFirstRecordFields = dataB[0].split(",");
+
+    const locationA = headerAFields.indexOf(checkInDateHeader);
+    const locationB = headerBFields.indexOf(checkInDateHeader);
+
+    if (locationA === -1 || locationB === -1) {
+      console.error(`Check-In Date header not found in one of the files.`);
+      return 0;
+    }
+
+    let dateA = dataAFirstRecordFields[locationA];
+    let dateB = dataBFirstRecordFields[locationB];
+
+    // Remove double quotes
+    dateA = dateA.replace(/"/g, "");
+    dateB = dateB.replace(/"/g, "");
+
+    const timeA = new Date(dateA).getTime();
+    const timeB = new Date(dateB).getTime();
+
+    if (isNaN(timeA) || isNaN(timeB)) {
+      console.error(
+        `Invalid date format in one of the files: ${dateA}, ${dateB}`
+      );
+      return 0;
+    }
+
+    return timeB - timeA;
+  });
+};
+
+// Function to populate the merged report
+const populateMergedReport = (
+  inputReports: Array<{ data: string; pathname: string }>,
+  derivedReferenceHeaderFields: string[],
+  mergedReport: string[]
+): void => {
+  inputReports.forEach((inputReport) => {
+    const { data, pathname } = inputReport;
+    const inputReportRecords = data.split("\n");
+    const [inputHeaderRecord, ...inputDataRecords] = inputReportRecords;
+
+    const inputHeaderRecordFields = inputHeaderRecord.split(",");
+
+    const inputFieldTranslationMap = new Map<string, number>();
+
+    derivedReferenceHeaderFields.forEach((referenceHeaderField) => {
+      const loc = inputHeaderRecordFields.indexOf(referenceHeaderField);
+
+      if (loc !== -1) {
+        inputFieldTranslationMap.set(referenceHeaderField, loc);
+      }
+    });
+
+    console.log(
+      `\n${pathname} translation map: ${JSON.stringify(
+        Array.from(inputFieldTranslationMap)
+      )}`
+    );
+
+    inputDataRecords.forEach((inputDataRecord) => {
+      if (inputDataRecord) {
+        let newRecord = "";
+
+        const inputDataRecordFields = splitCSVLine(inputDataRecord);
+
+        derivedReferenceHeaderFields.forEach((derivedReferenceHeaderField) => {
+          const loc = inputFieldTranslationMap.get(derivedReferenceHeaderField);
+          if (typeof loc != "undefined") {
+            newRecord += `${inputDataRecordFields[loc]}`;
+          }
+
+          newRecord += ",";
+        });
+
+        console.log(`Adding new record to merged report: ${newRecord}`);
+        mergedReport.push(newRecord);
+      }
+    });
+  });
+};
+
 // Function to handle the "merge" command
 const cmdMerge = async (target: string): Promise<void> => {
+  console.log(`Starting merge process for target directory: ${target}`);
+
   // Will throw if target is not a directory
   await targetIs("DIR", target);
 
@@ -111,7 +209,7 @@ const cmdMerge = async (target: string): Promise<void> => {
     )
     .map(({ name }) => new URL(name, targetUrl));
 
-  console.log(`Input files: ${JSON.stringify(inputFileList)}`);
+  console.log(`Found ${inputFileList.length} CSV files to process.`);
 
   // Store each input report (CSV) in memory
   (
@@ -124,55 +222,13 @@ const cmdMerge = async (target: string): Promise<void> => {
     ({ data, pathname }) =>
       (data.split("\n")[0].split(",").includes(checkInDateHeader) && //only store reports with a valid header
         inputReports.push({ data, pathname })) ||
-      console.error(`Ignoring: ${pathname}`)
+      console.error(`Ignoring file without valid header: ${pathname}`)
   );
 
-  inputReports.sort((a, b) => {
-    // Split the data into header and rows
-    const [headerA, ...dataA] = a.data.split("\n");
-    const [headerB, ...dataB] = b.data.split("\n");
+  console.log(`Stored ${inputReports.length} reports with valid headers.`);
 
-    // Split the headers into fields
-    const headerAFields = headerA.split(",");
-    const headerBFields = headerB.split(",");
-
-    // Split the first record of data into fields
-    const dataAFirstRecordFields = dataA[0].split(",");
-    const dataBFirstRecordFields = dataB[0].split(",");
-
-    // Find the index of the check-in date header
-    const locationA = headerAFields.indexOf(checkInDateHeader);
-    const locationB = headerBFields.indexOf(checkInDateHeader);
-
-    // If the check-in date header is not found, log an error and return 0
-    if (locationA === -1 || locationB === -1) {
-      console.error(`Check-In Date header not found in one of the files.`);
-      return 0;
-    }
-
-    // Extract the check-in dates from the first record
-    let dateA = dataAFirstRecordFields[locationA];
-    let dateB = dataBFirstRecordFields[locationB];
-
-    // Remove double quotes
-    dateA = dateA.replace(/"/g, "");
-    dateB = dateB.replace(/"/g, "");
-
-    // Parse the dates into timestamps
-    const timeA = new Date(dateA).getTime();
-    const timeB = new Date(dateB).getTime();
-
-    // If either date is invalid, log an error and return 0
-    if (isNaN(timeA) || isNaN(timeB)) {
-      console.error(
-        `Invalid date format in one of the files: ${dateA}, ${dateB}`
-      );
-      return 0;
-    }
-
-    // Sort in descending order (most recent first)
-    return timeB - timeA;
-  });
+  // Sort reports by check-in date
+  sortReportsByDate(inputReports, checkInDateHeader);
 
   console.log(
     `Reports ordered by most recent check-in: ${JSON.stringify(
@@ -193,112 +249,24 @@ const cmdMerge = async (target: string): Promise<void> => {
     throw new Error("Could not determine reference header fields");
 
   console.log(
-    `\n\nDerived Reference Header Fields: ${JSON.stringify(
+    `Derived Reference Header Fields: ${JSON.stringify(
       derivedReferenceHeaderFields
     )}`
   );
 
-  //Popualte Merged Report (output)
+  // Populate Merged Report (output)
   mergedReport[0] = derivedReferenceHeader; // Set header
+  populateMergedReport(
+    inputReports,
+    derivedReferenceHeaderFields,
+    mergedReport
+  );
 
-  inputReports.forEach((inputReport) => {
-    const { data, pathname } = inputReport;
-    const inputReportRecords = data.split("\n");
-    const [inputHeaderRecord, ...inputDataRecords] = inputReportRecords;
-
-    const inputHeaderRecordFields = inputHeaderRecord.split(",");
-
-    const inputFieldTranslationMap = new Map<string, number>();
-
-    derivedReferenceHeaderFields.forEach((referenceHeaderField) => {
-      const loc = inputHeaderRecordFields.indexOf(referenceHeaderField);
-
-      if (loc !== -1) {
-        inputFieldTranslationMap.set(referenceHeaderField, loc);
-      }
-    });
-
-    console.log(
-      `${pathname} translation map: ${JSON.stringify(
-        Array.from(inputFieldTranslationMap)
-      )}`
-    );
-
-    inputDataRecords.forEach((inputDataRecord) => {
-      if (inputDataRecord) {
-        let newRecord = "";
-
-        const inputDataRecordFields = splitCSVLine(inputDataRecord);
-
-        console.log("\nNew Record:");
-
-        derivedReferenceHeaderFields.forEach((derivedReferenceHeaderField) => {
-          const loc = inputFieldTranslationMap.get(derivedReferenceHeaderField);
-          if (typeof loc != "undefined") {
-            console.log(
-              `Add to record (${derivedReferenceHeaderField}): ${inputDataRecordFields[loc]}`
-            );
-            newRecord += `${inputDataRecordFields[loc]}`;
-          }
-
-          newRecord += ",";
-        });
-
-        mergedReport.push(newRecord);
-      }
-    });
-
-    console.log(`\n\n${mergedReport.join("\n")}`);
-
-    // inputDataRecords.forEach((inputDataRecord) => {
-    //   let newRecord = "";
-
-    //   const inputDataRecordFields = inputDataRecord.split(",");
-
-    //   derivedReferenceHeaderFields.forEach((derivedReferenceHeaderField) => {
-    //     let newField = "";
-
-    //     const loc = inputFieldTranslationMap.get(derivedReferenceHeaderField);
-    //     if (loc) {
-    //       newField += `"${inputDataRecordFields[loc]}"`;
-    //     }
-
-    //     newField += ",";
-    //     newRecord += newField;
-    //   });
-
-    //   mergedReport.push(newRecord);
-    // });
-  });
-
-  // if (mergedHeaders.size === 0)
-  //   throw new Error("malformed input files, no headers found");
+  //Lets write the new report out here...
 
   // console.log(
-  //   `Using combined headers: ${JSON.stringify(Array.from(mergedHeaders))}`
+  //   `Merge process completed. Merged report:\n\n${mergedReport.join("\n")}`
   // );
-
-  //Agg: ["Net","Callsign","Role","Highlighted","Check-In Date","Name","Location","SigReport","URL","Net ID","Net Start Date"]
-  //Individual: ["Net","Callsign","Role","Check-In Date","Name","Location","SigReport","URL","Net ID","Net Start Date"]
-
-  // Pseudo Code:
-  //Loop over inputReports
-  //  For each report
-  //    create a boolean Array called skipField
-  //    create a Set for this specific report's headers called reportSpecificHeaders
-  //
-  //    Loop over mergedHeaders and keep the index (used below)
-  //      If (reportSpecificHeaders.has(agg header)) {
-  //        skipField[mergedHeaders index] = false
-  //      } else {
-  //        skipField[mergedHeaders index] = true
-  //      }
-  //
-  //    Loop over rest of report....
-  //       write each field to merged report, if field location is in skipField write ',,'
-  //
-  //    Determine which fields are NetId and Check-In date and sort new report
-  //    Push agg headers onto new report
 };
 
 // Function to execute the given command
