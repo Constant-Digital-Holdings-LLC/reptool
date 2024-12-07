@@ -52,6 +52,7 @@ const processArgs = (): { cmd: CMD; target?: string } => {
     throw new Error(`No such ${APPNAME} command: ${cmd}`);
   }
 
+  console.debug(`Command: ${cmd}, Target: ${target}`);
   return { cmd, target };
 };
 
@@ -69,9 +70,11 @@ const targetIs = async (
   } else if (type === "FILE" && !isFile) {
     throw new Error(`Target ${target} is not a file`);
   }
+
+  console.debug(`Target ${target} is a valid ${type.toLowerCase()}`);
 };
 
-// Function to split a CSV line into fields, handling quoted fields
+// Improved function to split a CSV line into fields, handling quoted fields with commas
 const splitCSVLine = (line: string): string[] => {
   const result: string[] = [];
   let field = "";
@@ -116,8 +119,8 @@ const sortReportsByDate = (
     const headerAFields = headerA.split(",");
     const headerBFields = headerB.split(",");
 
-    const dataAFirstRecordFields = dataA[0].split(",");
-    const dataBFirstRecordFields = dataB[0].split(",");
+    const dataAFirstRecordFields = splitCSVLine(dataA[0]);
+    const dataBFirstRecordFields = splitCSVLine(dataB[0]);
 
     const locationA = headerAFields.indexOf(checkInDateHeader);
     const locationB = headerBFields.indexOf(checkInDateHeader);
@@ -146,6 +149,8 @@ const sortReportsByDate = (
 
     return timeB - timeA;
   });
+
+  console.debug(`Reports sorted by check-in date.`);
 };
 
 // Function to populate the merged report
@@ -155,7 +160,7 @@ const populateMergedReport = (
   mergedReport: string[]
 ): void => {
   inputReports.forEach((inputReport) => {
-    const { data, pathname } = inputReport;
+    const { data } = inputReport;
     const inputReportRecords = data.split("\n");
     const [inputHeaderRecord, ...inputDataRecords] = inputReportRecords;
 
@@ -171,12 +176,6 @@ const populateMergedReport = (
       }
     });
 
-    console.log(
-      `\n${pathname} translation map: ${JSON.stringify(
-        Array.from(inputFieldTranslationMap)
-      )}`
-    );
-
     inputDataRecords.forEach((inputDataRecord) => {
       if (inputDataRecord) {
         let newRecord = "";
@@ -186,24 +185,28 @@ const populateMergedReport = (
         derivedReferenceHeaderFields.forEach((derivedReferenceHeaderField) => {
           const loc = inputFieldTranslationMap.get(derivedReferenceHeaderField);
           if (typeof loc != "undefined") {
-            newRecord += `${inputDataRecordFields[loc]}`;
+            let field = inputDataRecordFields[loc];
+            if (field.includes(",")) {
+              field = `"${field}"`; // Quote fields containing commas
+            }
+            newRecord += `${field}`;
           }
 
           newRecord += ",";
         });
 
-        console.log(`Adding new record to merged report: ${newRecord}`);
         mergedReport.push(newRecord);
       }
     });
   });
+
+  console.debug(`Merged report populated with data.`);
 };
 
 // Function to handle the "merge" command
 const cmdMerge = async (target?: string): Promise<void> => {
   if (!target) {
     handleUsage();
-
     throw new Error("Missing target path argument for merge command");
   }
 
@@ -238,7 +241,7 @@ const cmdMerge = async (target?: string): Promise<void> => {
     ({ data, pathname }) =>
       (data.split("\n")[0].split(",").includes(checkInDateHeader) && //only store reports with a valid header
         inputReports.push({ data, pathname })) ||
-      console.error(`Ignoring file without valid header: ${pathname}`)
+      console.warn(`Ignoring file without valid header: ${pathname}`)
   );
 
   console.log(`Stored ${inputReports.length} reports with valid headers.`);
@@ -246,11 +249,7 @@ const cmdMerge = async (target?: string): Promise<void> => {
   // Sort reports by check-in date
   sortReportsByDate(inputReports, checkInDateHeader);
 
-  console.log(
-    `Reports ordered by most recent check-in: ${JSON.stringify(
-      inputReports.map((ir) => ir.pathname)
-    )}`
-  );
+  console.log(`Reports sorted by most recent check-in date.`);
 
   const derivedReferenceHeader: string = inputReports[0].data.split("\n")[0];
   const derivedReferenceHeaderFields: string[] =
@@ -264,11 +263,7 @@ const cmdMerge = async (target?: string): Promise<void> => {
   )
     throw new Error("Could not determine reference header fields");
 
-  console.log(
-    `Derived Reference Header Fields: ${JSON.stringify(
-      derivedReferenceHeaderFields
-    )}`
-  );
+  console.log(`Derived reference header fields determined.`);
 
   // Populate Merged Report (output)
   mergedReport[0] = derivedReferenceHeader; // Set header
@@ -278,13 +273,16 @@ const cmdMerge = async (target?: string): Promise<void> => {
     mergedReport
   );
 
-  console.log(
-    `Merge process completed. Merged report:\n\n${mergedReport.join("\n")}`
-  );
+  // Write to output
+  const outFileUrl = new URL(OUTFILE, targetUrl);
+  await Deno.writeTextFile(outFileUrl, mergedReport.join("\n"));
+
+  console.log(`Merge process completed. Merged report saved to: ${outFileUrl}`);
 };
 
 // Function to execute the given command
 const executeCommand = async (cmd: CMD, target?: string): Promise<void> => {
+  console.debug(`Executing command: ${cmd}`);
   switch (cmd) {
     case "merge":
       await cmdMerge(target);
