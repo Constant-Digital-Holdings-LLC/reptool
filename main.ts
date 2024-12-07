@@ -26,6 +26,7 @@ interface Report {
 // Function to display usage information
 const handleUsage = (): void => {
   console.log(`
+${APPNAME} version: ${VERSION}
 
 Usage: reptool <command> <target>
 
@@ -35,6 +36,14 @@ Example:
   ${APPNAME} merge C:\\Users\\jdoe\\Desktop\\Reports
 
 Need help?: ${HELPEMAIL}
+
+Description:
+  reptool is a tool intended to manage Ham.Live reports.
+
+License:
+  This software is distributed under the MIT license with no warranty.
+  Ham.Live has no liability for any damages, misuse, or bugs.
+
 `);
 };
 
@@ -203,6 +212,8 @@ const populateMergedReport = (
       `Processed ${recordCount} records from report ${reportIndex + 1}`
     );
   });
+
+  console.debug(`Merged report populated with data.`);
 };
 
 // Function to handle the "merge" command
@@ -304,6 +315,7 @@ const executeCommand = async (cmd: CMD, target?: string): Promise<void> => {
 // Main function to run the program
 const main = async (): Promise<void> => {
   console.log(`${APPNAME} (v ${VERSION})`);
+  const startTime = Date.now();
   try {
     const { cmd, target } = processArgs();
     await executeCommand(cmd, target);
@@ -314,6 +326,10 @@ const main = async (): Promise<void> => {
       console.error("Unknown error occurred");
     }
     Deno.exit(1);
+  } finally {
+    const endTime = Date.now();
+    const executionTime = (endTime - startTime) / 1000;
+    console.log(`Execution time: ${executionTime} seconds`);
   }
 };
 
