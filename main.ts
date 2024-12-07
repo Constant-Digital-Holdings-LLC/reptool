@@ -17,6 +17,12 @@ const isCMD = (value: string): value is CMD => {
   return CMDLIST.includes(value as CMD);
 };
 
+// Define the structure of a report
+interface Report {
+  data: string;
+  pathname: string;
+}
+
 // Get command-line arguments
 const [cmd, target] = Deno.args;
 // We can't append to this unless it has a trailing slash
@@ -64,7 +70,7 @@ const targetIs = async (
 
 // Function to split a CSV line into fields, handling quoted fields
 const splitCSVLine = (line: string): string[] => {
-  const result = [];
+  const result: string[] = [];
   let field = "";
   let inQuotes = false;
 
@@ -97,7 +103,7 @@ const splitCSVLine = (line: string): string[] => {
 
 // Function to sort input reports by the check-in date in descending order
 const sortReportsByDate = (
-  inputReports: Array<{ data: string; pathname: string }>,
+  inputReports: Report[],
   checkInDateHeader: string
 ): void => {
   inputReports.sort((a, b) => {
@@ -141,7 +147,7 @@ const sortReportsByDate = (
 
 // Function to populate the merged report
 const populateMergedReport = (
-  inputReports: Array<{ data: string; pathname: string }>,
+  inputReports: Report[],
   derivedReferenceHeaderFields: string[],
   mergedReport: string[]
 ): void => {
@@ -198,7 +204,7 @@ const cmdMerge = async (target: string): Promise<void> => {
   await targetIs("DIR", target);
 
   const mergedReport: string[] = []; // Output
-  const inputReports: Array<{ data: string; pathname: string }> = [];
+  const inputReports: Report[] = [];
   const checkInDateHeader = "Check-In Date";
 
   // Populate input file list
@@ -214,7 +220,7 @@ const cmdMerge = async (target: string): Promise<void> => {
   // Store each input report (CSV) in memory
   (
     await Promise.all(
-      inputFileList.map(async (url) => {
+      inputFileList.map(async (url): Promise<Report> => {
         return { data: await Deno.readTextFile(url), pathname: url.pathname };
       })
     )
@@ -262,11 +268,9 @@ const cmdMerge = async (target: string): Promise<void> => {
     mergedReport
   );
 
-  //Lets write the new report out here...
-
-  // console.log(
-  //   `Merge process completed. Merged report:\n\n${mergedReport.join("\n")}`
-  // );
+  console.log(
+    `Merge process completed. Merged report:\n\n${mergedReport.join("\n")}`
+  );
 };
 
 // Function to execute the given command
