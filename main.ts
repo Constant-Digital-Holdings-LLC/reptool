@@ -1,8 +1,5 @@
 import { VERSION } from "./version.ts";
-import {
-  fromFileUrl,
-  toFileUrl,
-} from "https://deno.land/std@0.224.0/path/mod.ts";
+import { toFileUrl } from "https://deno.land/std@0.224.0/path/mod.ts";
 
 const APPNAME = "reptool";
 const OUTFILE = "MERGED.csv";
