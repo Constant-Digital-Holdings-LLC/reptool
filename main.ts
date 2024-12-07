@@ -70,8 +70,6 @@ const targetIs = async (
   } else if (type === "FILE" && !isFile) {
     throw new Error(`Target ${target} is not a file`);
   }
-
-  console.debug(`Target ${target} is a valid ${type.toLowerCase()}`);
 };
 
 // Improved function to split a CSV line into fields, handling quoted fields with commas
@@ -149,8 +147,6 @@ const sortReportsByDate = (
 
     return timeB - timeA;
   });
-
-  console.debug(`Reports sorted by check-in date.`);
 };
 
 // Function to populate the merged report
@@ -159,7 +155,7 @@ const populateMergedReport = (
   derivedReferenceHeaderFields: string[],
   mergedReport: string[]
 ): void => {
-  inputReports.forEach((inputReport) => {
+  inputReports.forEach((inputReport, reportIndex) => {
     const { data } = inputReport;
     const inputReportRecords = data.split("\n");
     const [inputHeaderRecord, ...inputDataRecords] = inputReportRecords;
@@ -175,6 +171,8 @@ const populateMergedReport = (
         inputFieldTranslationMap.set(referenceHeaderField, loc);
       }
     });
+
+    let recordCount = 0;
 
     inputDataRecords.forEach((inputDataRecord) => {
       if (inputDataRecord) {
@@ -196,11 +194,14 @@ const populateMergedReport = (
         });
 
         mergedReport.push(newRecord);
+        recordCount++;
       }
     });
-  });
 
-  console.debug(`Merged report populated with data.`);
+    console.log(
+      `Processed ${recordCount} records from report ${reportIndex + 1}`
+    );
+  });
 };
 
 // Function to handle the "merge" command
@@ -209,8 +210,6 @@ const cmdMerge = async (target?: string): Promise<void> => {
     handleUsage();
     throw new Error("Missing target path argument for merge command");
   }
-
-  console.log(`Starting merge process for target directory: ${target}`);
 
   // Will throw if target is not a directory
   await targetIs("DIR", target);
@@ -227,6 +226,15 @@ const cmdMerge = async (target?: string): Promise<void> => {
         isFile && name.includes(".csv") && !name.includes(OUTFILE)
     )
     .map(({ name }) => new URL(name, targetUrl));
+
+  // Check if OUTFILE exists and log it
+  const outFilePath = new URL(OUTFILE, targetUrl);
+  try {
+    await Deno.stat(outFilePath);
+    console.log(`Omitting existing output file from input: ${outFilePath}`);
+  } catch {
+    // File does not exist, no action needed
+  }
 
   console.log(`Found ${inputFileList.length} CSV files to process.`);
 
@@ -274,15 +282,15 @@ const cmdMerge = async (target?: string): Promise<void> => {
   );
 
   // Write to output
-  const outFileUrl = new URL(OUTFILE, targetUrl);
-  await Deno.writeTextFile(outFileUrl, mergedReport.join("\n"));
+  await Deno.writeTextFile(outFilePath, mergedReport.join("\n"));
 
-  console.log(`Merge process completed. Merged report saved to: ${outFileUrl}`);
+  console.log(
+    `Merge process completed. Merged report saved to: ${outFilePath}`
+  );
 };
 
 // Function to execute the given command
 const executeCommand = async (cmd: CMD, target?: string): Promise<void> => {
-  console.debug(`Executing command: ${cmd}`);
   switch (cmd) {
     case "merge":
       await cmdMerge(target);
