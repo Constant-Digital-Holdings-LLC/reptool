@@ -54,6 +54,7 @@ const processArgs = (): { cmd: CMD; target?: string } => {
   }
 
   if (!isCMD(cmd)) {
+    handleUsage();
     throw new Error(`No such ${APPNAME} command: ${cmd}`);
   }
 
@@ -245,6 +246,12 @@ const cmdMerge = async (target?: string): Promise<void> => {
     // File does not exist, no action needed
   }
 
+  if (inputFileList.length === 0) {
+    console.error("No CSV files found in the target directory.");
+    handleUsage();
+    Deno.exit(1);
+  }
+
   console.log(`Found ${inputFileList.length} CSV files to process.`);
 
   // Store each input report (CSV) in memory
@@ -306,6 +313,7 @@ const executeCommand = async (cmd: CMD, target?: string): Promise<void> => {
       await cmdMerge(target);
       break;
     default:
+      handleUsage();
       throw new Error(`No such ${APPNAME} command: ${cmd}`);
   }
 };
