@@ -32,7 +32,7 @@ Usage: reptool <command> <target>
 Available commands: ${CMDLIST.join(", ")}
 
 Example:
-  ${APPNAME} merge C:\\Users\\slynch\\Desktop\\Reports
+  ${APPNAME} merge C:\\Users\\jdoe\\Desktop\\Reports
 
 Need help?: ${HELPEMAIL}
 `);
