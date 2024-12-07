@@ -62,13 +62,44 @@ const targetIs = async (
   }
 };
 
+const splitCSVLine = (line: string): string[] => {
+  const result = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"' && inQuotes && nextChar === '"') {
+      // Handle escaped quotes
+      field += '"';
+      i++; // Skip the next quote
+    } else if (char === '"') {
+      // Toggle the inQuotes flag
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      // If not in quotes, this is a field separator
+      result.push(field);
+      field = "";
+    } else {
+      // Regular character
+      field += char;
+    }
+  }
+
+  // Add the last field
+  result.push(field);
+
+  return result;
+};
+
 // Function to handle the "merge" command
 const cmdMerge = async (target: string): Promise<void> => {
   // Will throw if target is not a directory
   await targetIs("DIR", target);
-  console.log(`Handling merge in ${target}`);
 
-  const referenceHeaders: string[] = [];
+  const mergedReport: string[] = []; // Output
   const inputReports: Array<{ data: string; pathname: string }> = [];
   const checkInDateHeader = "Check-In Date";
 
@@ -109,9 +140,6 @@ const cmdMerge = async (target: string): Promise<void> => {
     const dataAFirstRecordFields = dataA[0].split(",");
     const dataBFirstRecordFields = dataB[0].split(",");
 
-    console.log(`headerA: ${headerA}`);
-    console.log(`headerB: ${headerB}`);
-
     // Find the index of the check-in date header
     const locationA = headerAFields.indexOf(checkInDateHeader);
     const locationB = headerBFields.indexOf(checkInDateHeader);
@@ -130,13 +158,9 @@ const cmdMerge = async (target: string): Promise<void> => {
     dateA = dateA.replace(/"/g, "");
     dateB = dateB.replace(/"/g, "");
 
-    console.log(`Extracted dates: dateA = ${dateA}, dateB = ${dateB}`);
-
     // Parse the dates into timestamps
     const timeA = new Date(dateA).getTime();
     const timeB = new Date(dateB).getTime();
-
-    console.log(`Parsed times: timeA = ${timeA}, timeB = ${timeB}`);
 
     // If either date is invalid, log an error and return 0
     if (isNaN(timeA) || isNaN(timeB)) {
@@ -150,16 +174,101 @@ const cmdMerge = async (target: string): Promise<void> => {
     return timeB - timeA;
   });
 
-  console.log(`First report ${inputReports[0].pathname}`);
-
   console.log(
     `Reports ordered by most recent check-in: ${JSON.stringify(
       inputReports.map((ir) => ir.pathname)
     )}`
   );
 
-  inputReports.forEach((rep) => {
-    console.log(`\nReport:\n${JSON.stringify(rep)}`);
+  const derivedReferenceHeader: string = inputReports[0].data.split("\n")[0];
+  const derivedReferenceHeaderFields: string[] =
+    derivedReferenceHeader.split(",");
+
+  if (
+    !(
+      Array.isArray(derivedReferenceHeaderFields) &&
+      derivedReferenceHeaderFields.length
+    )
+  )
+    throw new Error("Could not determine reference header fields");
+
+  console.log(
+    `\n\nDerived Reference Header Fields: ${JSON.stringify(
+      derivedReferenceHeaderFields
+    )}`
+  );
+
+  //Popualte Merged Report (output)
+  mergedReport[0] = derivedReferenceHeader; // Set header
+
+  inputReports.forEach((inputReport) => {
+    const { data, pathname } = inputReport;
+    const inputReportRecords = data.split("\n");
+    const [inputHeaderRecord, ...inputDataRecords] = inputReportRecords;
+
+    const inputHeaderRecordFields = inputHeaderRecord.split(",");
+
+    const inputFieldTranslationMap = new Map<string, number>();
+
+    derivedReferenceHeaderFields.forEach((referenceHeaderField) => {
+      const loc = inputHeaderRecordFields.indexOf(referenceHeaderField);
+
+      if (loc !== -1) {
+        inputFieldTranslationMap.set(referenceHeaderField, loc);
+      }
+    });
+
+    console.log(
+      `${pathname} translation map: ${JSON.stringify(
+        Array.from(inputFieldTranslationMap)
+      )}`
+    );
+
+    inputDataRecords.forEach((inputDataRecord) => {
+      if (inputDataRecord) {
+        let newRecord = "";
+
+        const inputDataRecordFields = splitCSVLine(inputDataRecord);
+
+        console.log("\nNew Record:");
+
+        derivedReferenceHeaderFields.forEach((derivedReferenceHeaderField) => {
+          const loc = inputFieldTranslationMap.get(derivedReferenceHeaderField);
+          if (typeof loc != "undefined") {
+            console.log(
+              `Add to record (${derivedReferenceHeaderField}): ${inputDataRecordFields[loc]}`
+            );
+            newRecord += `${inputDataRecordFields[loc]}`;
+          }
+
+          newRecord += ",";
+        });
+
+        mergedReport.push(newRecord);
+      }
+    });
+
+    console.log(`\n\n${mergedReport.join("\n")}`);
+
+    // inputDataRecords.forEach((inputDataRecord) => {
+    //   let newRecord = "";
+
+    //   const inputDataRecordFields = inputDataRecord.split(",");
+
+    //   derivedReferenceHeaderFields.forEach((derivedReferenceHeaderField) => {
+    //     let newField = "";
+
+    //     const loc = inputFieldTranslationMap.get(derivedReferenceHeaderField);
+    //     if (loc) {
+    //       newField += `"${inputDataRecordFields[loc]}"`;
+    //     }
+
+    //     newField += ",";
+    //     newRecord += newField;
+    //   });
+
+    //   mergedReport.push(newRecord);
+    // });
   });
 
   // if (mergedHeaders.size === 0)
